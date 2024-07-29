@@ -8,7 +8,7 @@ Deletes QR codes automiatcally from not staff-members of the server (checked by 
 This bot begins working as soon as it has been added to a server. It scans all attachments and embedded images. It will also present this information alongside total server count and ping when tagged.
 
 ## Settings 
-The bot has one confirgurable setting, which is to enable a logging channel for the bot whenever it deletes a message. You can use the slash command `/setlogchannel` and specify either a channel to set the logging channel or "none" to remove it.
+The bot has one confirgurable setting, which is to enable a logging channel for the bot whenever it deletes a message. You can use the slash command `/setlogchannel` and specify either a channel to set the logging channel or "none" to remove it. You will need the `Administrator` permission to see this command.
 
 ## Running the bot
 If you would like to run this bot, follow these instructions. 
