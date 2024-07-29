@@ -1,0 +1,21 @@
+{
+  "name": "qrdeleter",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "express": "^4.19.2",
+    "jimp": "^0.9.3",
+    "jsqr": "^1.2.0",
+    "qrcode-reader": "^1.0.4",
+    "request": "^2.88.0",
+    "sequelize": "^6.37.3",
+    "sqlite3": "^5.1.7"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "author": "",
+  "license": "ISC"
+}
