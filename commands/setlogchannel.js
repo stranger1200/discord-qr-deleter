@@ -1,10 +1,12 @@
 const { SlashCommandBuilder } = require('@discordjs/builders');
+const { PermissionsBitField } = require('discord.js')
 const { setLogChannel } = require('../database.js'); // Adjusted to the correct path
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('setlogchannel')
         .setDescription('Set or remove the logging channel for QR code deletions')
+        .setDefaultMemberPermissions(PermissionsBitField.Flags.Administrator)
         .addStringOption(option => 
             option.setName('channel')
                 .setDescription('The name or ID of the channel to send logs to or type "none" to remove the logging channel')
