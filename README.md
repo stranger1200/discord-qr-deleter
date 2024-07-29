@@ -5,12 +5,13 @@
 Deletes QR codes automiatcally from not staff-members of the server (checked by Manage Messages permission). Will log all deletions to bot console.
 
 ## How to Use
-This bot has no settings and begins working as soon as it has been added to a server. It scans all attachments and embedded images.
+This bot begins working as soon as it has been added to a server. It scans all attachments and embedded images. It will also present this information alongside total server count and ping when tagged.
 
-To get this information simply tag the bot in any channel that it has post-messages access to. 
+## Settings 
+The bot has one confirgurable setting, which is to enable a logging channel for the bot whenever it deletes a message. You can use the slash command `/setlogchannel` and specify either a channel to set the logging channel or "none" to remove it.
 
-## Self-hosting
-If you would like to host this bot yourself, follow these instructions. 
+## Running the bot
+If you would like to run this bot, follow these instructions. 
 
 1. Download and install [Node.JS](https://nodejs.org/en/)
 2. Download this repository as a zip.
