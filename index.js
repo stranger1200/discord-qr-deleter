@@ -52,7 +52,7 @@ client.on('messageCreate', async function (msg) {
             let diff = client.uptime;
             let s = Math.floor(diff / 1000);
             let m = Math.floor(s / 60);
-            s = m % 60;
+            s = s % 60;
             let h = Math.floor(m / 60);
             m = m % 60;
             let d = Math.floor(h / 24);
@@ -86,9 +86,6 @@ client.on('messageCreate', async function (msg) {
     if (!deleted) {
         msg.awaitReactions({ max: 1, time: 300000, errors: [] }).then(async function (collected) {
             let deleted = await processMessage(msg);
-            if (!deleted && (msg.attachments.size > 0 || msg.embeds.length > 0)) {
-                msg.react("✅").catch(() => { });
-            }
         });
     }
 });
