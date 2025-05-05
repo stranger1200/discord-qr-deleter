@@ -1,0 +1,10 @@
+{
+    "errorHandler": {
+        "webhookUrl": "YOUR_WEBHOOK_URL_HERE",
+        "adminId": "YOUR_ADMIN_ID_HERE"
+    },
+    "permissions": {
+        "adminRoleId": "YOUR_ADMIN_ROLE_ID_HERE",
+        "adminGuildId": "YOUR_ADMIN_GUILD_ID_HERE"
+    }
+}
