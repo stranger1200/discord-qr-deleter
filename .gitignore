@@ -2,6 +2,14 @@
 node_modules/
 package-lock.json
 
+# Environment variables
+.env
+
+# Configuration files with sensitive data
+config/botconfig.json
+config/serverconfig.json
+config/qrStats.json
+
 # Logs
 logs
 *.log
