@@ -1,0 +1,33 @@
+{
+  "name": "discord-qr-scanner-bot",
+  "version": "1.0.0",
+  "description": "A Discord bot that scans, detects, and manages QR codes in messages",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "qr",
+    "scanner",
+    "moderation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@discordjs/rest": "^0.4.0-dev.1648166871.cedd053",
+    "ascii-table": "^0.0.9",
+    "chalk": "^2.4.1",
+    "discord-api-types": "^0.30.0",
+    "discord.js": "^14.19.3",
+    "dotenv": "^16.5.0",
+    "jimp": "^0.16.13",
+    "jsqr": "^1.4.0",
+    "qrcode-reader": "^1.0.4",
+    "request": "^2.88.2"
+  },
+  "engines": {
+    "node": ">=16.9.0"
+  }
+}
