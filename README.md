@@ -93,7 +93,7 @@ npm install
 
 3. Update the `.env` file with your bot token:
 ```env
-DISCORD_TOKEN=your_bot_token_here
+TOKEN=YOUR_BOT_TOKEN_HERE
 ```
 
 4. Configure `config/botconfig.json` with your settings (see Configuration Files section)
