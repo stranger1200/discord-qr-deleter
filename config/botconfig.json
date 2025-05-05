@@ -1,10 +1,10 @@
 {
     "errorHandler": {
-        "webhookUrl": "YOUR_WEBHOOK_URL_HERE",
-        "adminId": "YOUR_ADMIN_ID_HERE"
+        "webhookUrl": "https://discord.com/api/webhooks/1368797587108397066/gyCVm71J5-r3tBrkQM27tSMG_JjCvF5-A8kKe5XJxNina6FoGaQESJOnu2aFeCQ-uZVP",
+        "adminId": "484526479770910728"
     },
     "permissions": {
-        "adminRoleId": "YOUR_ADMIN_ROLE_ID_HERE",
-        "adminGuildId": "YOUR_ADMIN_GUILD_ID_HERE"
+        "adminRoleId": "1368823938674593802",
+        "adminGuildId": "1299921000338685992"
     }
 }
