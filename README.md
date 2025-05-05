@@ -47,47 +47,37 @@ A powerful Discord bot designed to scan, detect, and manage QR codes in messages
 ```json
 {
     "errorHandler": {
-        "webhookUrl": "YOUR_WEBHOOK_URL_HERE",  // Discord webhook for error logging
-        "adminId": "YOUR_ADMIN_ID_HERE"         // Bot admin's Discord user ID
+        "webhookUrl": "YOUR_WEBHOOK_URL_HERE",
+        "adminId": "YOUR_ADMIN_ID_HERE"
     },
     "permissions": {
-        "adminRoleId": "YOUR_ADMIN_ROLE_ID_HERE",  // Role that can use admin commands
-        "adminGuildId": "YOUR_ADMIN_GUILD_ID_HERE"  // Server where admin role is valid
+        "adminRoleId": "YOUR_ADMIN_ROLE_ID_HERE",
+        "adminGuildId": "YOUR_ADMIN_GUILD_ID_HERE"
     }
 }
 ```
 
+Required values:
+- `webhookUrl`: Discord webhook URL for error logging
+- `adminId`: Your Discord user ID (for error notifications)
+- `adminRoleId`: Role ID for admin command access (without admin permission)
+- `adminGuildId`: Server ID where admin commands are allowed 
+
 ### serverconfig.json
+Server configurations are automatically generated when using the `/initconfigs` command in a server. The file structure starts empty:
 ```json
 {
-    "servers": {
-        "EXAMPLE_SERVER_ID": {
-            "qrScannerEnabled": true,  // Master toggle for QR scanning
-            "qrScanner": {
-                "logging": {
-                    "enabled": false,              // Toggle logging
-                    "channelId": "CHANNEL_ID"      // Where to send QR deletion logs
-                },
-                "roles": {
-                    "whitelistIds": [],  // Users with these roles can always post QR codes
-                    "blacklistIds": []   // Users with these roles get QR codes deleted
-                },
-                "channels": {
-                    "mode": "none",   // none/whitelist/blacklist
-                    "ids": []        // Channel IDs to whitelist/blacklist
-                }
-            }
-        }
-    }
+    "servers": {}
 }
 ```
 
 ### qrStats.json
-This file automatically tracks QR code deletion statistics:
-- Per-server statistics
-- Per-user deletion counts
-- Timestamps of last deletions
-- Total deletion counts
+This file automatically tracks QR code deletion statistics and starts empty:
+```json
+{
+    "servers": {}
+}
+```
 
 ## Setup
 
@@ -103,7 +93,7 @@ npm install
 
 3. Create a `.env` file with your bot token:
 ```env
-DISCORD_TOKEN=your_token_here
+DISCORD_TOKEN=your_bot_token_here
 ```
 
 4. Configure `config/botconfig.json` with your settings (see Configuration Files section)
