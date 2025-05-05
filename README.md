@@ -91,7 +91,7 @@ git clone [your-repo-url]
 npm install
 ```
 
-3. Create a `.env` file with your bot token:
+3. Update the `.env` file with your bot token:
 ```env
 DISCORD_TOKEN=your_bot_token_here
 ```
