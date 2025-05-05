@@ -2,6 +2,8 @@
 
 A powerful Discord bot designed to scan, detect, and manage QR codes in messages, with comprehensive server configuration options and detailed statistics tracking.
 
+Primarily designed for the https://discord.gg/squadbusters/ discord server, but can be used fine in any server.
+
 ## Features
 
 - **QR Code Detection**: Automatically scans images for QR codes
