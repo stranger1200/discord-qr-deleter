@@ -2,14 +2,11 @@ const { Client, GatewayIntentBits, Partials, ActivityType } = require('discord.j
 const chalk = require('chalk');
 const client = new Client({
 	intents: [
-		GatewayIntentBits.Guilds, 
-		GatewayIntentBits.GuildMessages, 
-		GatewayIntentBits.GuildPresences, 
-		GatewayIntentBits.GuildMessageReactions, 
-		GatewayIntentBits.DirectMessages,
+		GatewayIntentBits.Guilds,
+		GatewayIntentBits.GuildMessages,
 		GatewayIntentBits.MessageContent
-	], 
-	partials: [Partials.Channel, Partials.Message, Partials.User, Partials.GuildMember, Partials.Reaction] 
+	],
+	partials: [Partials.Message]
 });
 
 const fs = require('fs');
@@ -25,31 +22,30 @@ client.on("ready", async () => {
 	// Handle slash commands
 	await client.loadSlashCommands();
 
+	// Find the largest server by member count
+	const largestServer = client.guilds.cache.reduce((prev, current) => 
+		(prev.memberCount > current.memberCount) ? prev : current
+	);
+
 	const activities = [
-		{ name: `${client.guilds.cache.size} Servers`, type: ActivityType.Listening },
-		{ name: `${client.channels.cache.size} Channels`, type: ActivityType.Playing },
-		{ name: `${client.users.cache.size} Users`, type: ActivityType.Watching },
-		{ name: `Discord.js v14`, type: ActivityType.Competing }
+		{ name: `QR Codes`, type: ActivityType.Custom, state: 'Busting QR Codes' },
+		{ name: `${largestServer.memberCount} members`, type: ActivityType.Watching }
 	];
-	const status = [
-		'online',
-		'dnd',
-		'idle'
-	];
+
+	// Set initial status
+	client.user.setActivity(activities[0].state, { type: activities[0].type });
 
 	let i = 0;
 	setInterval(() => {
-		if(i >= activities.length) i = 0;
-		client.user.setActivity(activities[i]);
-		i++;
-	}, 5000);
+		i = (i + 1) % activities.length;
+		if (activities[i].type === ActivityType.Custom) {
+			client.user.setActivity(activities[i].state, { type: activities[i].type });
+		} else {
+			client.user.setActivity(activities[i]);
+		}
+	}, 300000); // 5 minutes in milliseconds
 
-	let s = 0;
-	setInterval(() => {
-		if(s >= activities.length) s = 0;
-		client.user.setStatus(status[s]);
-		s++;
-	}, 30000);
+	client.user.setStatus('online');
 	console.log(chalk.red(`Logged in as ${client.user.tag}!`));
 });
 
