@@ -196,7 +196,7 @@ async function processImageWithTimeout(buffer, attachment, message) {
 }
 
 // Helper function to log QR details
-async function logQR(client, messageData, attachmentBuffer, qrContent, serverConfig, timings) {
+async function logQR(client, messageData, attachmentBuffer, qrContent, serverConfig) {
     try {
         if (!serverConfig.qrScanner.logging.enabled || !serverConfig.qrScanner.logging.channelId) return;
 
@@ -218,7 +218,7 @@ async function logQR(client, messageData, attachmentBuffer, qrContent, serverCon
                 { name: 'Channel', value: `${messageData.channel.name}\n<#${messageData.channel.id}>\n\`${messageData.channel.id}\``, inline: true }
             )
             .setImage('attachment://qr_image.png')
-            .setFooter({ text: `This user has ${deletionText} | Scan: ${timings?.scanDuration.toFixed(2)}ms` });
+            .setFooter({ text: `This user has ${deletionText}` });
 
         // Add message content if it exists
         if (messageData.content.trim()) {
@@ -272,133 +272,88 @@ async function logQR(client, messageData, attachmentBuffer, qrContent, serverCon
 
 async function handleQRCode(message, qrResult, client, scanDuration) {
     try {
-        const startTime = performance.now();
-        const timings = {
-            configLoad: 0,
-            roleCheck: 0,
-            logging: 0,
-            messageDelete: 0,
-            total: 0,
-            scanDuration: scanDuration || 0
-        };
-
         const guildId = message.guild.id;
-        const configLoadStart = performance.now();
         const config = guildHandler.loadServerConfig();
         const serverConfig = config.servers[guildId];
-        timings.configLoad = performance.now() - configLoadStart;
 
         if (!serverConfig?.qrScannerEnabled) return;
 
-        const roleCheckStart = performance.now();
-        const hasWhitelistedRole = message.member.roles.cache.some(role => 
-            serverConfig.qrScanner.roles.whitelistIds.includes(role.id)
-        );
+        // Cache necessary data before deletion
+        const messageData = {
+            content: message.content,
+            author: {
+                id: message.author.id,
+                username: message.author.username,
+                bot: message.author.bot,
+                tag: message.author.tag
+            },
+            channel: {
+                id: message.channel.id,
+                name: message.channel.name
+            },
+            guild: {
+                id: message.guild.id,
+                name: message.guild.name
+            },
+            url: message.url,
+            timestamp: message.createdTimestamp
+        };
 
-        const hasBlacklistedRole = message.member.roles.cache.some(role => 
-            serverConfig.qrScanner.roles.blacklistIds.includes(role.id)
-        );
-
-        const channelMode = serverConfig.qrScanner.channels.mode;
-        const channelIds = serverConfig.qrScanner.channels.ids;
-        const isChannelRestricted = (channelMode === "whitelist" && !channelIds.includes(message.channel.id)) ||
-                                  (channelMode === "blacklist" && channelIds.includes(message.channel.id));
-        timings.roleCheck = performance.now() - roleCheckStart;
-
-        if ((hasBlacklistedRole && !hasWhitelistedRole) || isChannelRestricted) {
-            // Cache necessary data before deletion
-            const messageData = {
-                content: message.content,
-                author: {
-                    id: message.author.id,
-                    username: message.author.username,
-                    bot: message.author.bot,
-                    tag: message.author.tag
-                },
-                channel: {
-                    id: message.channel.id,
-                    name: message.channel.name
-                },
-                guild: {
-                    id: message.guild.id,
-                    name: message.guild.name
-                },
-                url: message.url,
-                timestamp: message.createdTimestamp
-            };
-
-            // Cache the first attachment if it exists
-            let attachmentBuffer = null;
-            if (message.attachments.size > 0) {
-                const attachment = message.attachments.first();
-                try {
-                    attachmentBuffer = await downloadBuffer(attachment.url);
-                } catch (error) {
-                    console.error('Failed to cache attachment:', error);
-                }
-            }
-
-            const deleteStart = performance.now();
-            
-            // Send response message and delete QR message
-            let responseMessage;
+        // Cache the first attachment if it exists
+        let attachmentBuffer = null;
+        if (message.attachments.size > 0) {
+            const attachment = message.attachments.first();
             try {
-                if (qrResult.includes('https://link.squadbusters.com/en/JoinPinata')) {
-                    responseMessage = await message.channel.send({
-                        content: `<@${message.author.id}> You got busted! Please use our <@1254477771875422330> bot to post invites. Need help? Check out <#1260149539675963403>!`,
-                        allowedMentions: { users: [message.author.id] }
-                    });
-                } else {
-                    responseMessage = await message.channel.send({
-                        content: `<@${message.author.id}> You got busted! Posting QR codes is not permitted here.`,
-                        allowedMentions: { users: [message.author.id] }
-                    });
-                }
-
-                await message.delete();
-                timings.messageDelete = performance.now() - deleteStart;
-
-                // Delete response message after 15 seconds
-                setTimeout(() => {
-                    responseMessage.delete().catch(() => {});
-                }, 15000);
-
-                // Handle logging and stats in parallel
-                Promise.all([
-                    // Log to channel if enabled
-                    serverConfig.qrScanner.logging.enabled ? 
-                        (async () => {
-                            const loggingStart = performance.now();
-                            await logQR(client, messageData, attachmentBuffer, qrResult, serverConfig, timings);
-                            timings.logging = performance.now() - loggingStart;
-                        })() : Promise.resolve(),
-                    // Record deletion stats
-                    (async () => {
-                        await recordDeletion(guildId, message.author.id);
-                    })()
-                ]).catch(error => {
-                    console.error('Error in parallel processing:', error);
-                    if (client.handleError) {
-                        client.handleError(message, error, 'QR parallel processing');
-                    }
-                });
-
+                attachmentBuffer = await downloadBuffer(attachment.url);
             } catch (error) {
-                if (error.code !== 10008) {
-                    throw error;
-                }
+                console.error('Failed to cache attachment:', error);
+            }
+        }
+        
+        // Send response message and delete QR message
+        let responseMessage;
+        try {
+            if (qrResult.includes('https://link.squadbusters.com/en/JoinPinata')) {
+                responseMessage = await message.channel.send({
+                    content: `<@${message.author.id}> You got busted! Please use our <@1254477771875422330> bot to post invites. Need help? Check out <#1260149539675963403>!`,
+                    allowedMentions: { users: [message.author.id] }
+                });
+            } else {
+                responseMessage = await message.channel.send({
+                    content: `<@${message.author.id}> You got busted! Posting QR codes is not permitted here.`,
+                    allowedMentions: { users: [message.author.id] }
+                });
             }
 
-            timings.total = performance.now() - startTime;
-            console.log(`Performance Metrics for QR Code (${messageData.id}):
-- Scan Duration: ${timings.scanDuration.toFixed(2)}ms
-- Config Load: ${timings.configLoad.toFixed(2)}ms
-- Role Checks: ${timings.roleCheck.toFixed(2)}ms
-- Message Delete: ${timings.messageDelete.toFixed(2)}ms
-- Total Process: ${timings.total.toFixed(2)}ms
-- Logging: Still processing in background`);
+            await message.delete();
 
-            return;
+            // Delete response message after 15 seconds
+            setTimeout(() => {
+                responseMessage.delete().catch(() => {});
+            }, 15000);
+
+            // Handle logging and stats in parallel
+            Promise.all([
+                // Log to channel if enabled and channel exists
+                (serverConfig.qrScanner.logging?.enabled && serverConfig.qrScanner.logging?.channelId) ? 
+                    (async () => {
+                        await logQR(client, messageData, attachmentBuffer, qrResult, serverConfig);
+                    })() : Promise.resolve(),
+                // Record deletion stats
+                (async () => {
+                    await recordDeletion(guildId, message.author.id);
+                })()
+            ]).catch(error => {
+                console.error('Error in parallel processing:', error);
+                if (client.handleError) {
+                    client.handleError(message, error, 'QR parallel processing');
+                }
+            });
+
+        } catch (error) {
+            if (error.code !== 10008) {
+                throw error;
+            }
         }
     } catch (error) {
         client.handleError(message, error, 'QR code handling');
@@ -477,11 +432,9 @@ module.exports = (client) => {
                         if (recentScans.has(attachment.url)) {
                             const cachedResult = recentScans.get(attachment.url);
                             if (Date.now() - cachedResult.timestamp < SCAN_CACHE_TTL) {
-                                console.log(`[CACHE] Using cached QR scan result for ${attachment.url}`);
-                                if (cachedResult.result) {
+                                if (cachedResult.result && !qrFound) {
                                     qrFound = true;
                                     await handleQRCode(message, cachedResult.result, client, 0);
-                                    break;
                                 }
                                 continue;
                             }
@@ -489,14 +442,12 @@ module.exports = (client) => {
                         }
 
                         // Download and process the image
-                        const scanStart = performance.now();
                         const buffer = await downloadBuffer(attachment.url);
                         
                         try {
                             const result = await processImageWithTimeout(buffer, attachment, message);
-                            const scanDuration = performance.now() - scanStart;
                             
-                            if (result) {
+                            if (result && !qrFound) {
                                 qrFound = true;
                                 console.log('QR Code detected!');
                                 console.log('Message URL:', message.url);
@@ -505,7 +456,6 @@ module.exports = (client) => {
                                 console.log('QR Code content:', result.result);
                                 console.log('Channel:', message.channel.name);
                                 console.log('Author:', message.author.tag);
-                                console.log('Scan Duration:', scanDuration.toFixed(2), 'ms');
                                 console.log('-------------------');
 
                                 // Cache the result
@@ -518,9 +468,8 @@ module.exports = (client) => {
                                     timestamp: Date.now()
                                 });
 
-                                // Log QR code and break the loop
-                                await handleQRCode(message, result.result, client, scanDuration);
-                                break;
+                                // Handle QR code
+                                await handleQRCode(message, result.result, client);
                             }
                         } catch (error) {
                             if (error.details?.type === 'timeout') {
