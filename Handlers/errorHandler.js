@@ -2,7 +2,7 @@ const { EmbedBuilder, AttachmentBuilder, MessageFlags, WebhookClient } = require
 const chalk = require('chalk');
 const config = require('../config/botconfig.json');
 
-const handleError = async (interaction, error, context = '') => {
+const handleError = async (interaction, error, context = '', details = {}) => {
     console.error(error);
 
     // Handle expired interactions first
@@ -22,18 +22,19 @@ const handleError = async (interaction, error, context = '') => {
                 .setTimestamp();
 
             // Add detailed information if available
-            if (error.details) {
-                const details = [];
-                if (error.details.guildName) details.push(`**Server:** \`${error.details.guildName}\` (\`${error.details.guildId}\`)`);
-                if (error.details.channelName) details.push(`**Channel:** \`${error.details.channelName}\` (\`${error.details.channelId}\`)`);
-                if (error.details.authorTag) details.push(`**User:** \`${error.details.authorTag}\` (\`${error.details.authorId}\`)`);
-                if (error.details.messageId) details.push(`**Message ID:** \`${error.details.messageId}\``);
-                if (error.details.imageUrl) details.push(`**Image URL:** \`${error.details.imageUrl}\``);
-                if (error.details.type) details.push(`**Error Type:** \`${error.details.type}\``);
-                if (error.details.timestamp) details.push(`**Timestamp:** \`${error.details.timestamp}\``);
+            if (error.details || details) {
+                const combinedDetails = { ...error.details, ...details };
+                const detailsArray = [];
+                if (combinedDetails.guildName) detailsArray.push(`**Server:** \`${combinedDetails.guildName}\` (\`${combinedDetails.guildId}\`)`);
+                if (combinedDetails.channelName) detailsArray.push(`**Channel:** \`${combinedDetails.channelName}\` (\`${combinedDetails.channelId}\`)`);
+                if (combinedDetails.authorTag) detailsArray.push(`**User:** \`${combinedDetails.authorTag}\` (\`${combinedDetails.authorId}\`)`);
+                if (combinedDetails.messageId) detailsArray.push(`**Message ID:** \`${combinedDetails.messageId}\``);
+                if (combinedDetails.imageUrl) detailsArray.push(`**Image URL:** \`${combinedDetails.imageUrl}\``);
+                if (combinedDetails.type) detailsArray.push(`**Error Type:** \`${combinedDetails.type}\``);
+                if (combinedDetails.timestamp) detailsArray.push(`**Timestamp:** \`${combinedDetails.timestamp}\``);
 
-                if (details.length > 0) {
-                    errorEmbed.addFields({ name: 'Error Context', value: details.join('\n') });
+                if (detailsArray.length > 0) {
+                    errorEmbed.addFields({ name: 'Error Context', value: detailsArray.join('\n') });
                 }
             }
 
@@ -62,7 +63,7 @@ const handleError = async (interaction, error, context = '') => {
     }
 
     // Only show user messages for slash commands (interaction.isCommand())
-    if (interaction.isCommand?.()) {
+    if (interaction && interaction.isCommand?.()) {
         const discordErrorMessages = {
             50013: 'The bot lacks necessary permissions.',
             50001: 'Missing access to the channel.',
@@ -99,4 +100,25 @@ const handleError = async (interaction, error, context = '') => {
 // Export a function that sets up the error handler
 module.exports = (client) => {
     client.handleError = handleError;
+    
+    // Set up global error handlers
+    process.on('unhandledRejection', (reason, promise) => {
+        console.error(chalk.red('Unhandled Rejection at:'), promise, chalk.red('reason:'), reason);
+        client.handleError(null, reason, 'Unhandled Promise Rejection', {
+            type: 'unhandledRejection',
+            timestamp: new Date().toISOString()
+        });
+    });
+    
+    process.on('uncaughtException', (error) => {
+        console.error(chalk.red('Uncaught Exception:'), error);
+        client.handleError(null, error, 'Uncaught Exception', {
+            type: 'uncaughtException',
+            timestamp: new Date().toISOString()
+        });
+        
+        // For uncaught exceptions, it's often best to gracefully exit after logging
+        console.error(chalk.red('Exiting due to uncaught exception'));
+        setTimeout(() => process.exit(1), 5000); // Give time for logs to be sent
+    });
 }; 

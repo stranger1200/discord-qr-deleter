@@ -7,9 +7,6 @@ const { PermissionsBitField } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
-// Load bot config
-const botConfig = require('../config/botconfig.json');
-
 let guildHandler;
 
 // Function to load QR stats
@@ -76,6 +73,10 @@ const SCAN_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 const MAX_CACHE_SIZE = 50;
 const MAX_IMAGE_SIZE = 1024; // Maximum width/height for processing
 
+// Track processed messages to prevent duplicates
+const processedMessages = new Map();
+const MESSAGE_CACHE_TTL = 60 * 1000; // 1 minute
+
 // Configure QR reader
 let qr = new QrCode();
 qr.callback = function(error, result) {
@@ -101,7 +102,7 @@ function downloadBuffer(url) {
     });
 }
 
-// Helper function to resize image if needed
+// Helper function to optimize image if needed
 async function optimizeImage(img) {
     const width = img.bitmap.width;
     const height = img.bitmap.height;
@@ -188,6 +189,9 @@ async function processImageWithTimeout(buffer, attachment, message) {
                     resolve(null);
                 }
             });
+
+            // Explicitly clean up when done
+            buffer = null;
         } catch (error) {
             clearTimeout(timeout);
             reject(error);
@@ -270,8 +274,26 @@ async function logQR(client, messageData, attachmentBuffer, qrContent, serverCon
     }
 }
 
-async function handleQRCode(message, qrResult, client, scanDuration) {
+async function handleQRCode(message, qrResult, client, scanDuration, qrAttachmentBuffer) {
     try {
+        // Check if we've already processed this message
+        if (processedMessages.has(message.id)) {
+            return;
+        }
+        
+        // Mark message as processed
+        processedMessages.set(message.id, Date.now());
+        
+        // Clean up old processed messages every 100 entries
+        if (processedMessages.size > 100) {
+            const now = Date.now();
+            for (const [id, timestamp] of processedMessages.entries()) {
+                if (now - timestamp > MESSAGE_CACHE_TTL) {
+                    processedMessages.delete(id);
+                }
+            }
+        }
+        
         const guildId = message.guild.id;
         const config = guildHandler.loadServerConfig();
         const serverConfig = config.servers[guildId];
@@ -299,17 +321,6 @@ async function handleQRCode(message, qrResult, client, scanDuration) {
             timestamp: message.createdTimestamp
         };
 
-        // Cache the first attachment if it exists
-        let attachmentBuffer = null;
-        if (message.attachments.size > 0) {
-            const attachment = message.attachments.first();
-            try {
-                attachmentBuffer = await downloadBuffer(attachment.url);
-            } catch (error) {
-                console.error('Failed to cache attachment:', error);
-            }
-        }
-        
         // Send response message and delete QR message
         let responseMessage;
         try {
@@ -325,19 +336,25 @@ async function handleQRCode(message, qrResult, client, scanDuration) {
                 });
             }
 
-            await message.delete();
+            await message.delete().catch(err => {
+                console.error('Failed to delete message:', err);
+            });
 
             // Delete response message after 15 seconds
-            setTimeout(() => {
-                responseMessage.delete().catch(() => {});
-            }, 15000);
+            if (responseMessage) {
+                setTimeout(() => {
+                    responseMessage.delete().catch(err => {
+                        console.error('Failed to delete response message:', err);
+                    });
+                }, 15000);
+            }
 
             // Handle logging and stats in parallel
             Promise.all([
                 // Log to channel if enabled and channel exists
                 (serverConfig.qrScanner.logging?.enabled && serverConfig.qrScanner.logging?.channelId) ? 
                     (async () => {
-                        await logQR(client, messageData, attachmentBuffer, qrResult, serverConfig);
+                        await logQR(client, messageData, qrAttachmentBuffer, qrResult, serverConfig);
                     })() : Promise.resolve(),
                 // Record deletion stats
                 (async () => {
@@ -359,6 +376,28 @@ async function handleQRCode(message, qrResult, client, scanDuration) {
         client.handleError(message, error, 'QR code handling');
     }
 }
+
+// Improve cache management
+function cleanupCaches() {
+    const now = Date.now();
+    
+    // Clean up processedMessages cache
+    for (const [id, timestamp] of processedMessages.entries()) {
+        if (now - timestamp > MESSAGE_CACHE_TTL) {
+            processedMessages.delete(id);
+        }
+    }
+    
+    // Clean up recentScans cache
+    for (const [url, data] of recentScans.entries()) {
+        if (now - data.timestamp > SCAN_CACHE_TTL) {
+            recentScans.delete(url);
+        }
+    }
+}
+
+// Run cleanup every 5 minutes
+setInterval(cleanupCaches, 5 * 60 * 1000);
 
 module.exports = (client) => {
     // Initialize the guild handler
@@ -382,6 +421,11 @@ module.exports = (client) => {
         if (message.author.bot) return;
 
         try {
+            // Check if we've already processed this message
+            if (processedMessages.has(message.id)) {
+                return;
+            }
+            
             // Load server config
             const config = guildHandler.loadServerConfig();
             if (!config || !config.servers[message.guild.id]) return;
@@ -422,19 +466,35 @@ module.exports = (client) => {
             // Check if message has attachments
             if (message.attachments.size > 0) {
                 let qrFound = false;
+                let qrAttachmentBuffer = null;
+                let qrContent = null;
+                
                 // Loop through all attachments
                 for (const [_, attachment] of message.attachments) {
                     // Check if it's an image
                     if (!attachment.contentType?.startsWith('image/')) continue;
+                    
+                    // If we already found a QR code in this message, stop processing
+                    if (qrFound) break;
 
                     try {
                         // Check cache first
                         if (recentScans.has(attachment.url)) {
                             const cachedResult = recentScans.get(attachment.url);
                             if (Date.now() - cachedResult.timestamp < SCAN_CACHE_TTL) {
-                                if (cachedResult.result && !qrFound) {
+                                if (cachedResult.result) {
                                     qrFound = true;
-                                    await handleQRCode(message, cachedResult.result, client, 0);
+                                    qrContent = cachedResult.result;
+                                    
+                                    // Download the QR image for logging
+                                    try {
+                                        qrAttachmentBuffer = await downloadBuffer(attachment.url);
+                                    } catch (error) {
+                                        console.error('Failed to cache attachment:', error);
+                                    }
+                                    
+                                    await handleQRCode(message, qrContent, client, 0, qrAttachmentBuffer);
+                                    break; // Exit the loop after handling
                                 }
                                 continue;
                             }
@@ -447,8 +507,11 @@ module.exports = (client) => {
                         try {
                             const result = await processImageWithTimeout(buffer, attachment, message);
                             
-                            if (result && !qrFound) {
+                            if (result) {
                                 qrFound = true;
+                                qrContent = result.result;
+                                qrAttachmentBuffer = buffer; // Save the buffer of the image with the QR code
+                                
                                 console.log('QR Code detected!');
                                 console.log('Message URL:', message.url);
                                 console.log('Message content:', message.content);
@@ -469,7 +532,8 @@ module.exports = (client) => {
                                 });
 
                                 // Handle QR code
-                                await handleQRCode(message, result.result, client);
+                                await handleQRCode(message, qrContent, client, 0, qrAttachmentBuffer);
+                                break; // Exit the loop after handling
                             }
                         } catch (error) {
                             if (error.details?.type === 'timeout') {
